@@ -7,41 +7,81 @@ pool:
   vmImage: ubuntu-latest
 
 steps:
-  - checkout: self
 
-  - task: TerraformInstaller@1
-    displayName: Install Terraform
-    inputs:
-      terraformVersion: '1.5.0'
+# ---------------------------------------------------------
+# 1. Checkout GitHub repository
+# ---------------------------------------------------------
+- checkout: self
+  persistCredentials: true
 
-  - task: TerraformTaskV4@4
-    displayName: Terraform Init
-    inputs:
-      provider: 'aws'
-      command: 'init'
-      workingDirectory: '$(System.DefaultWorkingDirectory)'
-      backendServiceAWS: 'azuredevops-service-connection'
+# ---------------------------------------------------------
+# 2. Install Terraform
+# ---------------------------------------------------------
+- task: TerraformInstaller@1
+  displayName: Install Terraform
+  inputs:
+    terraformVersion: '1.5.0'
 
-  - task: TerraformTaskV4@4
-    displayName: Terraform Validate
-    inputs:
-      provider: 'aws'
-      command: 'validate'
-      workingDirectory: '$(System.DefaultWorkingDirectory)'
+# ---------------------------------------------------------
+# 3. Terraform Init
+#    Local backend = state stored as terraform.tfstate
+# ---------------------------------------------------------
+- task: TerraformTaskV4@4
+  displayName: Terraform Init
+  inputs:
+    provider: 'aws'
+    command: 'init'
+    workingDirectory: '$(System.DefaultWorkingDirectory)'
 
-  - task: TerraformTaskV4@4
-    displayName: Terraform Plan
-    inputs:
-      provider: 'aws'
-      command: 'plan'
-      workingDirectory: '$(System.DefaultWorkingDirectory)'
-      environmentServiceNameAWS: 'azuredevops-service-connection'
+# ---------------------------------------------------------
+# 4. Terraform Validate
+# ---------------------------------------------------------
+- task: TerraformTaskV4@4
+  displayName: Terraform Validate
+  inputs:
+    provider: 'aws'
+    command: 'validate'
+    workingDirectory: '$(System.DefaultWorkingDirectory)'
 
-  - task: TerraformTaskV4@4
-    displayName: Terraform Apply
-    inputs:
-      provider: 'aws'
-      command: 'apply'
-      workingDirectory: '$(System.DefaultWorkingDirectory)'
-      commandOptions: '-auto-approve'
-      environmentServiceNameAWS: 'azuredevops-service-connection'
+# ---------------------------------------------------------
+# 5. Terraform Plan
+# ---------------------------------------------------------
+- task: TerraformTaskV4@4
+  displayName: Terraform Plan
+  inputs:
+    provider: 'aws'
+    command: 'plan'
+    workingDirectory: '$(System.DefaultWorkingDirectory)'
+    environmentServiceNameAWS: 'azuredevops-service-connection'
+    commandOptions: '-out=tfplan'
+
+# ---------------------------------------------------------
+# 6. Terraform Apply
+# ---------------------------------------------------------
+- task: TerraformTaskV4@4
+  displayName: Terraform Apply
+  inputs:
+    provider: 'aws'
+    command: 'apply'
+    workingDirectory: '$(System.DefaultWorkingDirectory)'
+    environmentServiceNameAWS: 'azuredevops-service-connection'
+    commandOptions: 'tfplan'
+
+# ---------------------------------------------------------
+# 7. Commit updated Terraform state back to GitHub
+# ---------------------------------------------------------
+- script: |
+    git config user.email "azure-devops-pipeline@local"
+    git config user.name "Azure DevOps Pipeline"
+
+    git add terraform.tfstate
+
+    if git diff --cached --quiet; then
+      echo "No Terraform state changes to commit."
+    else
+      git commit -m "Update Terraform state [skip ci]"
+      git push origin HEAD:main
+    fi
+  displayName: Commit Terraform State
+  env:
+    GITHUB_TOKEN: $(GITHUB_TOKEN)
