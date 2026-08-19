@@ -20,7 +20,7 @@ steps:
       provider: 'aws'
       command: 'init'
       workingDirectory: '$(System.DefaultWorkingDirectory)'
-      environmentServiceNameAWS: 'azuredevops-service-connection'
+      backendServiceAWS: 'azuredevops-service-connection'
 
   - task: TerraformTaskV4@4
     displayName: Terraform Validate
