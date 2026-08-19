@@ -6,9 +6,3 @@ terraform {
     }
   }
 }
-
-provider "aws" {
-  region  = "us-east-1" # Change this as per your requirement
-  access_key = "******"
-  secret_key = "****"
-}
